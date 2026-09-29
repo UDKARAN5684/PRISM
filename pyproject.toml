@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prism-retention"
+version = "1.0.0"
+description = "Causal Survival Uplift and budget-constrained offer allocation for subscription retention"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "PRISM" }]
+keywords = [
+    "causal-inference", "uplift-modeling", "survival-analysis", "customer-lifetime-value",
+    "treatment-effects", "policy-learning", "mlops",
+]
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dynamic = ["dependencies", "optional-dependencies"]
+
+[project.scripts]
+prism = "prism.pipelines.run_all:cli"
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+optional-dependencies.dev = { file = ["requirements-dev.txt"] }
+
+[tool.setuptools.packages.find]
+include = ["prism*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers --durations=10"
+markers = [
+    "slow: takes more than ~20 seconds",
+    "network: requires internet access",
+    "statistical: asserts a statistical property and may be seed-sensitive",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::FutureWarning",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+exclude = ["artifacts", "notebooks", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "RET", "NPY"]
+ignore = [
+    "E501",    # line length is handled by the formatter
+    "B008",    # FastAPI Depends() in defaults is idiomatic
+    "SIM108",  # ternaries are not always clearer
+    "RET504",  # a named return value is often the clearer form
+    "B905",    # zip(strict=) - the lengths here are structurally equal, and the noise is large
+    "C408",    # dict(a=1) reads better than {"a": 1} for long keyword-style config blocks
+    "SIM105",  # contextlib.suppress is not clearer than a two-line try/except here
+    "NPY201",  # the np.trapz references are deliberate numpy-1/2 compatibility shims
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]
+"prism/app/dashboard.py" = ["E402"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_ignores = false
+disallow_untyped_defs = false
+exclude = ["artifacts", "notebooks"]
+
+[tool.coverage.run]
+source = ["prism"]
+omit = ["prism/app/*", "*/__main__.py"]

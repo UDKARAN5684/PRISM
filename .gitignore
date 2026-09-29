@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# Testing / typing / linting caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Artifacts: everything here is reproducible with `make run`, so it stays out of git.
+artifacts/
+!artifacts/.gitkeep
+# docs/figures IS committed: the charts are the visual evidence for the README's claims,
+# they total under 1 MB, and a reader should not have to run a 11-minute pipeline to see them.
+mlruns/
+*.duckdb
+*.duckdb.wal
+*.parquet
+*.joblib
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

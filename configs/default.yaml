@@ -1,0 +1,87 @@
+# PRISM - default pipeline configuration
+# A run is fully described by this file plus the seed. Everything downstream reads from here.
+
+seed: 7
+experiment_name: prism-causal-retention
+
+paths:
+  artifacts: artifacts
+  data: artifacts/data
+  models: artifacts/models
+  reports: artifacts/reports
+  figures: docs/figures
+  warehouse: artifacts/warehouse.duckdb
+  mlruns: artifacts/mlruns
+
+# ---------------------------------------------------------------------------------------
+# Data-generating process. These are the knobs that make the problem hard on purpose.
+# ---------------------------------------------------------------------------------------
+sim:
+  n_customers: 60000
+  n_periods: 24
+  horizon: 12                    # months over which RMST and value outcomes are measured
+  origin: "2022-01-01"
+  monthly_discount_rate: 0.01
+  rct_fraction: 0.15             # randomised holdout: the only clean ground truth a real firm has
+  confounding_strength: 1.0      # 0 = randomised everywhere; 1 = strong selection on churn risk
+  # Unobserved U drives BOTH assignment and churn, so it biases any observational estimate
+  # and gives the sensitivity analysis something real to quantify. Calibrated to 0.05: at
+  # 0.20+ the induced bias exceeds the true effect and the estimated CATE ranking inverts,
+  # which makes the benchmark unusable. See configs/high_confounding.yaml for that failure.
+  hidden_confounder_strength: 0.05
+  drift_strength: 0.6            # covariate + concept drift across periods, so monitoring has signal
+  seasonality_amplitude: 0.25
+  missing_rate: 0.08
+  mnar_strength: 0.5
+  outlier_rate: 0.004
+  duplicate_rate: 0.002
+
+# Temporal split by period index. Never random - the horizon makes random splits leak.
+split:
+  train_end: 13
+  valid_end: 17
+
+model:
+  survival_backend: auto         # auto -> torch MLP if installed, else sklearn person-period logistic
+  survival_hidden: [64, 32]
+  survival_epochs: 40
+  survival_lr: 0.001
+  clv_backend: auto
+  clv_epochs: 40
+  propensity_splits: 5
+  propensity_clip: [0.01, 0.99]
+  n_estimators: 300
+  learning_rate: 0.05
+  tune: false
+  n_trials: 20
+
+causal:
+  learners: [s, t, x, dr, r, forest, survival]
+  n_splits: 5
+  forest_trees: 400
+  forest_min_leaf: 15
+  honest_fraction: 0.5
+  doubly_robust: true
+  outcome: value                 # value | rmst | churn
+  refute: true
+  refute_sims: 10
+
+# ---------------------------------------------------------------------------------------
+# Unit economics. This is what turns a causal effect into a decision.
+# ---------------------------------------------------------------------------------------
+economics:
+  arm_costs: [0.0, 12.0, 30.0, 55.0]
+  offer_redemption_rate: [0.0, 0.62, 0.71, 0.48]   # cost is incurred only on redemption
+  margin_rate: 0.30
+  discount_rate: 0.01
+  horizon: 12
+  fixed_campaign_cost: 0.0
+  budget: 150000.0
+  budget_grid: [0.0, 25000.0, 50000.0, 100000.0, 150000.0, 250000.0, 400000.0, 750000.0]
+
+monitoring:
+  psi_warn: 0.10
+  psi_alert: 0.25
+  ks_alert_p: 0.01
+  cate_rank_corr_alert: 0.70
+  sign_flip_alert: 0.15

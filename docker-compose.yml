@@ -1,0 +1,62 @@
+# PRISM - the whole stack: batch pipeline, scoring API, dashboard, experiment tracking.
+#   docker compose up --build            (API + dashboard + mlflow)
+#   docker compose run --rm pipeline     (one-shot batch run, writes into ./artifacts)
+
+services:
+  pipeline:
+    build: .
+    image: prism-retention:latest
+    container_name: prism-pipeline
+    command: python -m prism.pipelines.run_all --config configs/fast.yaml --steps all
+    volumes:
+      - ./artifacts:/app/artifacts
+      - ./docs/figures:/app/docs/figures
+    environment:
+      - MLFLOW_TRACKING_URI=file:/app/artifacts/mlruns
+    profiles: ["batch"]
+
+  api:
+    build: .
+    image: prism-retention:latest
+    container_name: prism-api
+    command: uvicorn prism.serving.api:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./artifacts:/app/artifacts:ro
+    environment:
+      - PRISM_BUNDLE_PATH=/app/artifacts/models/bundle.joblib
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  dashboard:
+    build: .
+    image: prism-retention:latest
+    container_name: prism-dashboard
+    command: >
+      streamlit run prism/app/dashboard.py
+      --server.port 8501 --server.address 0.0.0.0 --server.headless true
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./artifacts:/app/artifacts:ro
+      - ./docs/figures:/app/docs/figures:ro
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  mlflow:
+    build: .
+    image: prism-retention:latest
+    container_name: prism-mlflow
+    command: mlflow ui --backend-store-uri file:/app/artifacts/mlruns --host 0.0.0.0 --port 5000
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./artifacts:/app/artifacts
+    restart: unless-stopped
